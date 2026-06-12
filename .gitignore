@@ -1,0 +1,18 @@
+# Environment files
+mbg-backend/.env
+mbg-frontend/.env
+mbg-frontend/.env.local
+
+# Python
+mbg-backend/venv/
+mbg-backend/__pycache__/
+mbg-backend/**/__pycache__/
+mbg-backend/**/*.pyc
+
+# Node
+mbg-frontend/node_modules/
+mbg-frontend/.next/
+
+# Misc
+.DS_Store
+*.log

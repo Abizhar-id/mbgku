@@ -1,0 +1,145 @@
+@import "tailwindcss";
+
+/* ── Brand palette ─────────────────────────────────────────────────────────── */
+:root {
+  --navy:        #071E49;
+  --green:       #92D05D;
+  --pastel-blue: #B5E0EA;
+  --gold:        #D1B06C;
+
+  /* Derived surfaces */
+  --navy-dark:   #051636;   /* hover / active on navy */
+  --navy-muted:  rgba(7,30,73,0.08);  /* tint bg */
+  --green-light: #E8F8D8;  /* status delivered bg */
+  --green-text:  #3A6618;  /* text on green tint */
+  --gold-light:  #FAF0DC;  /* rank gold bg */
+  --gold-text:   #7A5A1E;
+
+  /* Status chips */
+  --status-delivered-bg:   #E8F8D8;  --status-delivered-text: #3A6618;
+  --status-transit-bg:     #FFF4DC;  --status-transit-text:   #7A5A1E;
+  --status-late-bg:        #FEECEC;  --status-late-text:      #7A1F1F;
+  --status-pending-bg:     #F1F3F5;  --status-pending-text:   #6C757D;
+
+  /* Rank badges */
+  --rank-gold-bg:    #FAF0DC;  --rank-gold-border:    #D1B06C;
+  --rank-silver-bg:  #F2F3F5;  --rank-silver-border:  #B0B7C3;
+  --rank-bronze-bg:  #FFF0E4;  --rank-bronze-border:  #CD7F32;
+
+  /* Alert borders (podium row) */
+  --border-best:  #D1B06C;
+  --border-worst: #E05050;
+
+  /* Neutral scale */
+  --bg-page:    #F6F8FA;
+  --bg-card:    #FFFFFF;
+  --bg-surface: #F0F2F5;
+  --border:     #E2E6EA;
+
+  --text-primary:   #0D1B35;
+  --text-secondary: #5A6478;
+  --text-tertiary:  #9AA3B0;
+
+  /* Delta */
+  --delta-up:   #2E7D32;
+  --delta-down: #C62828;
+}
+
+/* ── Base ───────────────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  background-color: var(--bg-page);
+  color: var(--text-primary);
+  font-family: 'DM Sans', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Micro-interaction helpers ─────────────────────────────────────────────── */
+
+/* Primary button lift */
+.btn-primary {
+  background-color: var(--navy);
+  color: #ffffff;
+  border-radius: 10px;
+  font-weight: 500;
+  transition: background-color 150ms ease-out,
+              transform 150ms ease-out,
+              box-shadow 150ms ease-out;
+  cursor: pointer;
+}
+.btn-primary:hover {
+  background-color: var(--navy-dark);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(7,30,73,0.20);
+}
+.btn-primary:active { transform: scale(0.96); box-shadow: none; }
+.btn-primary:focus-visible { outline: 2px solid var(--pastel-blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary { transition: background-color 150ms ease-out; }
+  .btn-primary:hover { transform: none; box-shadow: none; }
+  .btn-primary:active { transform: none; }
+}
+
+/* Outline / ghost button */
+.btn-outline {
+  background-color: transparent;
+  color: var(--navy);
+  border: 1.5px solid var(--navy);
+  border-radius: 10px;
+  font-weight: 500;
+  transition: background-color 150ms ease-out,
+              transform 150ms ease-out;
+  cursor: pointer;
+}
+.btn-outline:hover  { background-color: var(--navy-muted); transform: translateY(-1px); }
+.btn-outline:active { transform: scale(0.96); }
+.btn-outline:focus-visible { outline: 2px solid var(--pastel-blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-outline:hover  { transform: none; }
+  .btn-outline:active { transform: none; }
+}
+
+/* Filter pill */
+.pill {
+  border-radius: 999px;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: background-color 120ms ease-out, color 120ms ease-out,
+              transform 120ms ease-out;
+  cursor: pointer;
+}
+.pill:hover  { transform: translateY(-0.5px); }
+.pill:active { transform: scale(0.97); }
+.pill.active { background-color: var(--navy); color: #ffffff; border-color: var(--navy); }
+@media (prefers-reduced-motion: reduce) {
+  .pill:hover, .pill:active { transform: none; }
+}
+
+/* Card lift on hover */
+.card-lift {
+  transition: transform 150ms ease-out, box-shadow 150ms ease-out;
+}
+.card-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(7,30,73,0.08);
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-lift:hover { transform: none; box-shadow: none; }
+}
+
+/* Chevron rotation */
+.chevron-icon {
+  transition: transform 200ms ease-out;
+}
+.chevron-icon.open { transform: rotate(180deg); }
+@media (prefers-reduced-motion: reduce) {
+  .chevron-icon { transition: none; }
+}
+
+/* Arrow link micro-shift */
+.link-arrow { transition: gap 150ms ease-out; }
+.link-arrow:hover { gap: 0.5rem; }
+
+/* Focus ring — global */
+:focus-visible { outline: 2px solid var(--pastel-blue); outline-offset: 2px; }

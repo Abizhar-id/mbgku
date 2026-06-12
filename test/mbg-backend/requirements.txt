@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+supabase
+pydantic
+pydantic-settings
+python-dotenv
+openai
+pyjwt
+python-multipart
+qrcode[pil]
