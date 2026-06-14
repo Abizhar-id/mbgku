@@ -1,47 +1,49 @@
 @import "tailwindcss";
 
-/* ── Brand palette ─────────────────────────────────────────────────────────── */
+/* ── Brand palette — Modern Government Portal (BGN-inspired) ─────────────────── */
 :root {
-  --navy:        #071E49;
-  --green:       #92D05D;
-  --pastel-blue: #B5E0EA;
-  --gold:        #D1B06C;
-
-  /* Derived surfaces */
-  --navy-dark:   #051636;   /* hover / active on navy */
+  --navy:        #071E49;   /* primary */
+  --navy-light:  #0F3275;   /* hover / gradient end */
+  --navy-dark:   #051636;   /* deep active */
   --navy-muted:  rgba(7,30,73,0.08);  /* tint bg */
-  --green-light: #E8F8D8;  /* status delivered bg */
-  --green-text:  #3A6618;  /* text on green tint */
-  --gold-light:  #FAF0DC;  /* rank gold bg */
+
+  --green:       #2D9B51;   /* accent */
+  --green-light: #E8F5ED;   /* accent tint / delivered bg */
+  --green-text:  #166534;   /* text on green tint */
+
+  --gold:        #F5B82E;   /* highlight / rank #1 / stars */
+  --gold-light:  #FFFBEB;   /* gold tint bg (podium teratas) */
   --gold-text:   #7A5A1E;
 
+  --pastel-blue: #B5E0EA;   /* focus ring accent */
+
   /* Status chips */
-  --status-delivered-bg:   #E8F8D8;  --status-delivered-text: #3A6618;
-  --status-transit-bg:     #FFF4DC;  --status-transit-text:   #7A5A1E;
-  --status-late-bg:        #FEECEC;  --status-late-text:      #7A1F1F;
-  --status-pending-bg:     #F1F3F5;  --status-pending-text:   #6C757D;
+  --status-delivered-bg:   #E8F5ED;  --status-delivered-text: #166534;
+  --status-transit-bg:     #FEF3C7;  --status-transit-text:   #92660E;
+  --status-late-bg:        #FEE2E2;  --status-late-text:      #B91C1C;
+  --status-pending-bg:     #EEF1F8;  --status-pending-text:   #6C757D;
 
   /* Rank badges */
-  --rank-gold-bg:    #FAF0DC;  --rank-gold-border:    #D1B06C;
+  --rank-gold-bg:    #FFFBEB;  --rank-gold-border:    #F5B82E;
   --rank-silver-bg:  #F2F3F5;  --rank-silver-border:  #B0B7C3;
   --rank-bronze-bg:  #FFF0E4;  --rank-bronze-border:  #CD7F32;
 
   /* Alert borders (podium row) */
-  --border-best:  #D1B06C;
+  --border-best:  #F5B82E;
   --border-worst: #E05050;
 
   /* Neutral scale */
-  --bg-page:    #F6F8FA;
+  --bg-page:    #F4F6FA;
   --bg-card:    #FFFFFF;
-  --bg-surface: #F0F2F5;
-  --border:     #E2E6EA;
+  --bg-surface: #EEF1F8;
+  --border:     #DDE2EE;
 
-  --text-primary:   #0D1B35;
-  --text-secondary: #5A6478;
-  --text-tertiary:  #9AA3B0;
+  --text-primary:   #071E49;
+  --text-secondary: #4A5568;
+  --text-tertiary:  #8A97B0;
 
   /* Delta */
-  --delta-up:   #2E7D32;
+  --delta-up:   #166534;
   --delta-down: #C62828;
 }
 
@@ -55,25 +57,62 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+/* ── Gradient surfaces ──────────────────────────────────────────────────────── */
+.bg-gradient-navy {
+  background-image: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
+}
+
+/* ── Card ───────────────────────────────────────────────────────────────────── */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 1px 4px rgba(7,30,73,0.06);
+  transition: box-shadow 200ms ease, transform 200ms ease;
+}
+.card:hover {
+  box-shadow: 0 4px 16px rgba(7,30,73,0.12);
+}
+.card-hover-lift:hover { transform: translateY(-2px); }
+@media (prefers-reduced-motion: reduce) {
+  .card-hover-lift:hover { transform: none; }
+}
+
+/* ── Form field ─────────────────────────────────────────────────────────────── */
+.field {
+  width: 100%;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 150ms ease-out, box-shadow 150ms ease-out;
+}
+.field::placeholder { color: var(--text-tertiary); }
+.field:focus {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 3px rgba(7,30,73,0.12);
+}
+
 /* ── Micro-interaction helpers ─────────────────────────────────────────────── */
 
 /* Primary button lift */
 .btn-primary {
   background-color: var(--navy);
   color: #ffffff;
-  border-radius: 10px;
-  font-weight: 500;
-  transition: background-color 150ms ease-out,
-              transform 150ms ease-out,
-              box-shadow 150ms ease-out;
+  border-radius: 12px;
+  font-weight: 600;
+  transition: background-color 200ms ease-in-out,
+              transform 200ms ease-in-out,
+              box-shadow 200ms ease-in-out;
   cursor: pointer;
 }
 .btn-primary:hover {
-  background-color: var(--navy-dark);
+  background-color: var(--navy-light);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(7,30,73,0.20);
+  box-shadow: 0 4px 12px rgba(7,30,73,0.25);
 }
-.btn-primary:active { transform: scale(0.96); box-shadow: none; }
+.btn-primary:active { transform: scale(0.97); box-shadow: none; }
 .btn-primary:focus-visible { outline: 2px solid var(--pastel-blue); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .btn-primary { transition: background-color 150ms ease-out; }
@@ -86,34 +125,79 @@ body {
   background-color: transparent;
   color: var(--navy);
   border: 1.5px solid var(--navy);
-  border-radius: 10px;
-  font-weight: 500;
+  border-radius: 12px;
+  font-weight: 600;
   transition: background-color 150ms ease-out,
               transform 150ms ease-out;
   cursor: pointer;
 }
-.btn-outline:hover  { background-color: var(--navy-muted); transform: translateY(-1px); }
-.btn-outline:active { transform: scale(0.96); }
+.btn-outline:hover  { background-color: var(--bg-surface); transform: translateY(-1px); }
+.btn-outline:active { transform: scale(0.97); }
 .btn-outline:focus-visible { outline: 2px solid var(--pastel-blue); outline-offset: 2px; }
 @media (prefers-reduced-motion: reduce) {
   .btn-outline:hover  { transform: none; }
   .btn-outline:active { transform: none; }
 }
 
+/* Outline on dark (navbar over navy) */
+.btn-outline-light {
+  background-color: transparent;
+  color: #ffffff;
+  border: 1.5px solid rgba(255,255,255,0.55);
+  border-radius: 12px;
+  font-weight: 600;
+  transition: background-color 150ms ease-out, color 150ms ease-out, transform 150ms ease-out;
+  cursor: pointer;
+}
+.btn-outline-light:hover  { background-color: #ffffff; color: var(--navy); transform: translateY(-1px); }
+.btn-outline-light:active { transform: scale(0.97); }
+.btn-outline-light:focus-visible { outline: 2px solid var(--pastel-blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-outline-light:hover  { transform: none; }
+  .btn-outline-light:active { transform: none; }
+}
+
 /* Filter pill */
 .pill {
   border-radius: 999px;
-  font-weight: 500;
+  font-weight: 600;
   white-space: nowrap;
-  transition: background-color 120ms ease-out, color 120ms ease-out,
-              transform 120ms ease-out;
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  transition: background-color 150ms ease-out, color 150ms ease-out,
+              transform 150ms ease-out, box-shadow 150ms ease-out;
   cursor: pointer;
 }
-.pill:hover  { transform: translateY(-0.5px); }
+.pill:hover  { background-color: var(--border); transform: translateY(-0.5px); }
 .pill:active { transform: scale(0.97); }
-.pill.active { background-color: var(--navy); color: #ffffff; border-color: var(--navy); }
+.pill.active {
+  background-color: var(--navy);
+  color: #ffffff;
+  border-color: var(--navy);
+  box-shadow: 0 2px 8px rgba(7,30,73,0.20);
+}
+.pill.active:hover { background-color: var(--navy-light); }
 @media (prefers-reduced-motion: reduce) {
   .pill:hover, .pill:active { transform: none; }
+}
+
+/* Tab underline (rekap AI) */
+.tab-underline {
+  position: relative;
+  font-weight: 600;
+  color: var(--text-tertiary);
+  transition: color 150ms ease-out;
+  cursor: pointer;
+}
+.tab-underline:hover { color: var(--text-secondary); }
+.tab-underline.active { color: var(--navy); }
+.tab-underline.active::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: -1px;
+  height: 3px;
+  border-radius: 3px;
+  background-color: var(--navy);
 }
 
 /* Card lift on hover */
@@ -122,10 +206,17 @@ body {
 }
 .card-lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(7,30,73,0.08);
+  box-shadow: 0 6px 20px rgba(7,30,73,0.10);
 }
 @media (prefers-reduced-motion: reduce) {
   .card-lift:hover { transform: none; box-shadow: none; }
+}
+
+/* Photo zoom subtle */
+.photo-zoom { transition: transform 250ms ease-out; }
+.photo-zoom:hover { transform: scale(1.02); }
+@media (prefers-reduced-motion: reduce) {
+  .photo-zoom:hover { transform: none; }
 }
 
 /* Chevron rotation */

@@ -9,13 +9,14 @@ from datetime import datetime, timedelta, timezone
 
 import bcrypt
 import jwt
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel
 from supabase import Client
 
 from app.core.config import settings
 from app.core.database import get_supabase
+from app.core.ratelimit import limiter
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 bearer_scheme = HTTPBearer()
@@ -55,6 +56,15 @@ def _create_token(operator_id: int, sppg_id: int) -> str:
         "exp": expire,
     }
     return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
+
+
+def _verify_password(plain: str, hashed: str) -> bool:
+    """Verifikasi bcrypt dengan aman: nilai non-hash (mis. plaintext lama) → False,
+    bukan 500. Kolom DB tetap bernama `password` (isinya hash bcrypt)."""
+    try:
+        return bcrypt.checkpw(plain.encode(), hashed.encode())
+    except (ValueError, TypeError):
+        return False
 
 
 def _decode_token(token: str) -> dict:
@@ -110,15 +120,16 @@ def get_current_admin(
 # ── Endpoint ───────────────────────────────────────────────────────
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest, db: Client = Depends(get_supabase)):
+@limiter.limit("5/minute")
+def login(request: Request, body: LoginRequest, db: Client = Depends(get_supabase)):
     """
     Login terpadu untuk semua role. Role dideteksi otomatis dari kredensial:
-      1. Cari di tabel operator → role "sppg" (password plaintext).
+      1. Cari di tabel operator → role "sppg" (password bcrypt).
       2. Kalau tidak ada, cari di tabel admin → role "admin" (bcrypt).
       3. Kalau tidak ada di keduanya → 401.
     """
 
-    # 1. Operator SPPG (password plaintext — prototype)
+    # 1. Operator SPPG — kolom `password` berisi hash bcrypt (tanpa migrasi kolom)
     ops = (
         db.table("operator")
         .select("id, sppg_id, password")
@@ -128,7 +139,7 @@ def login(body: LoginRequest, db: Client = Depends(get_supabase)):
     )
     if ops:
         op = ops[0]
-        if op["password"] != body.password:
+        if not _verify_password(body.password, op["password"]):
             raise HTTPException(status_code=401, detail="Username atau password salah.")
 
         sppg = db.table("sppg").select("name").eq("id", op["sppg_id"]).execute().data
@@ -152,7 +163,7 @@ def login(body: LoginRequest, db: Client = Depends(get_supabase)):
     )
     if admins:
         admin = admins[0]
-        if not bcrypt.checkpw(body.password.encode(), admin["password_hash"].encode()):
+        if not _verify_password(body.password, admin["password_hash"]):
             raise HTTPException(status_code=401, detail="Username atau password salah.")
 
         return LoginResponse(

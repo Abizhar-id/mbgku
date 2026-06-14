@@ -54,8 +54,8 @@ function Chevron({ expanded }: { expanded: boolean }) {
 
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-2xl shadow-lg text-sm font-medium"
-      style={{ backgroundColor: ok ? 'var(--green)' : '#E05050', color: ok ? 'var(--navy)' : '#fff', maxWidth: '320px' }}>
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-2xl shadow-lg text-sm font-semibold"
+      style={{ backgroundColor: ok ? 'var(--green)' : '#E05050', color: '#fff', maxWidth: '320px' }}>
       {msg}
     </div>
   );
@@ -84,6 +84,9 @@ export default function AdminPage() {
   // Konfirmasi "Generate Ulang"
   const [confirm, setConfirm] = useState<{ schoolId: number; schoolName: string; kind: Kind } | null>(null);
 
+  // Pencarian SPPG / sekolah (real-time, tidak case-sensitive)
+  const [search, setSearch] = useState('');
+
   // Accordion: default semua SPPG ter-expand. Simpan hanya yang DI-collapse.
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const toggleSppg = useCallback((name: string) => {
@@ -99,6 +102,24 @@ export default function AdminPage() {
       }, {} as Record<string, AdminSchool[]>),
     [schools],
   );
+
+  // Filter accordion sesuai query. Cocok nama SPPG → tampilkan semua sekolahnya;
+  // cocok nama sekolah → tampilkan SPPG penaung dengan hanya sekolah yang cocok.
+  const filteredGroups = useMemo(() => {
+    if (!search.trim()) return grouped;
+    const q = search.toLowerCase();
+    const result: Record<string, AdminSchool[]> = {};
+    Object.entries(grouped).forEach(([sppgName, list]) => {
+      const sppgMatch = sppgName.toLowerCase().includes(q);
+      const matchedSchools = list.filter((s) => s.school_name.toLowerCase().includes(q));
+      if (sppgMatch) {
+        result[sppgName] = list;             // tampilkan semua sekolah
+      } else if (matchedSchools.length > 0) {
+        result[sppgName] = matchedSchools;   // hanya sekolah yang cocok
+      }
+    });
+    return result;
+  }, [grouped, search]);
 
   const showToast = useCallback((msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -183,26 +204,26 @@ export default function AdminPage() {
   // ── Render ───────────────────────────────────────────────────────
 
   return (
-    <motion.div
-      className="mx-auto px-4 py-6 flex flex-col gap-4"
-      style={{ maxWidth: '520px' }}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Kelola QR Sekolah</p>
-          <h1 className="font-bold" style={{ color: 'var(--navy)', fontSize: '17px' }}>Admin MBG</h1>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      {/* Header band navy */}
+      <header className="bg-gradient-navy">
+        <div className="mx-auto px-4 py-6 lg:px-8 flex items-center justify-between" style={{ maxWidth: '560px' }}>
+          <div>
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold mb-1.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.14)', color: 'var(--gold)' }}>
+              Kelola QR Sekolah
+            </span>
+            <h1 className="font-bold text-white" style={{ fontSize: '20px', letterSpacing: '-0.01em' }}>Admin MBGku</h1>
+          </div>
+          <button onClick={handleLogout}
+            className="btn-outline-light text-xs px-4 shrink-0"
+            style={{ height: '38px' }}>
+            Keluar
+          </button>
         </div>
-        <button onClick={handleLogout}
-          className="text-xs px-3 py-1.5 rounded-xl"
-          style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-          Keluar
-        </button>
-      </div>
+      </header>
 
+      <div className="mx-auto px-4 py-6 lg:px-8 flex flex-col gap-4" style={{ maxWidth: '560px' }}>
       {pageErr && <ErrorBox msg={pageErr} />}
 
       {pageLoading ? (
@@ -214,16 +235,40 @@ export default function AdminPage() {
       ) : schools.length === 0 && !pageErr ? (
         <p className="text-sm text-center py-6" style={{ color: 'var(--text-tertiary)' }}>Belum ada sekolah.</p>
       ) : (
-        Object.entries(grouped).map(([sppgName, list]) => {
-          const isExpanded = !collapsed[sppgName];
-          return (
+        <>
+          {/* Search bar — style identik SearchBar.tsx (leaderboard) */}
+          <div className="relative w-full">
+            <svg className="w-5 h-5 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+              style={{ color: 'var(--text-tertiary)' }} fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z" />
+            </svg>
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Cari SPPG dan Sekolah..."
+              className="field pl-11 pr-3 text-sm"
+              style={{ height: '48px' }}
+              aria-label="Cari SPPG dan Sekolah"
+            />
+          </div>
+
+          {Object.keys(filteredGroups).length === 0 ? (
+            <p className="text-sm text-center py-6" style={{ color: 'var(--text-tertiary)' }}>
+              Tidak ada SPPG atau sekolah yang ditemukan.
+            </p>
+          ) : (
+            Object.entries(filteredGroups).map(([sppgName, list]) => {
+              // Query aktif → paksa accordion ter-expand; preferensi collapse manual
+              // user tidak diubah (dipulihkan saat search dikosongkan).
+              const isExpanded = search.trim() ? true : !collapsed[sppgName];
+              return (
             <motion.div
               key={sppgName}
-              className="rounded-2xl"
-              style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', overflow: 'hidden' }}
+              className="card"
+              style={{ overflow: 'hidden' }}
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.25 }}
+              transition={{ duration: 0.3 }}
             >
               {/* Header SPPG — klik untuk expand/collapse */}
               <button
@@ -249,7 +294,7 @@ export default function AdminPage() {
                     style={{ overflow: 'hidden' }}
                   >
                     {list.map((school) => (
-                      <div key={school.school_id} className="py-3 px-4" style={{ borderTop: '1px solid var(--border)' }}>
+                      <div key={school.school_id} className="py-3 px-4 transition-colors hover:bg-[var(--bg-surface)]" style={{ borderTop: '1px solid var(--border)' }}>
                         <p className="text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>{school.school_name}</p>
 
                         <div className="flex flex-col gap-2">
@@ -266,8 +311,8 @@ export default function AdminPage() {
                                     </button>
                                     <button onClick={() => setConfirm({ schoolId: school.school_id, schoolName: school.school_name, kind })}
                                       disabled={genLoading[k]}
-                                      className="px-3 py-1.5 text-xs rounded-xl"
-                                      style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)', opacity: genLoading[k] ? 0.6 : 1 }}>
+                                      className="btn-outline px-3 py-1.5 text-xs"
+                                      style={{ opacity: genLoading[k] ? 0.6 : 1 }}>
                                       {genLoading[k] ? 'Memproses…' : 'Generate Ulang'}
                                     </button>
                                   </div>
@@ -284,8 +329,11 @@ export default function AdminPage() {
               </AnimatePresence>
             </motion.div>
           );
-        })
+            })
+          )}
+        </>
       )}
+      </div>
 
       {/* Modal Lihat QR */}
       <AnimatePresence>
@@ -297,15 +345,15 @@ export default function AdminPage() {
             onClick={closeModal}
           >
             <motion.div
-              className="w-full rounded-2xl p-5 flex flex-col gap-4"
-              style={{ maxWidth: '340px', backgroundColor: 'var(--bg-card)' }}
+              className="w-full p-6 flex flex-col gap-4"
+              style={{ maxWidth: '360px', backgroundColor: 'var(--bg-card)', borderRadius: '24px', boxShadow: '0 24px 60px rgba(7,30,73,0.35)' }}
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               onClick={(e) => e.stopPropagation()}
             >
               <div>
-                <h3 className="font-semibold" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>
+                <h3 className="font-bold" style={{ color: 'var(--navy)', fontSize: '16px' }}>
                   {modal.kind === 'delivery' ? 'QR Pengiriman' : 'QR Feedback'}
                 </h3>
                 <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>{modal.schoolName}</p>
@@ -349,14 +397,14 @@ export default function AdminPage() {
             onClick={() => setConfirm(null)}
           >
             <motion.div
-              className="w-full rounded-2xl p-5 flex flex-col gap-4"
-              style={{ maxWidth: '340px', backgroundColor: 'var(--bg-card)' }}
+              className="w-full p-6 flex flex-col gap-4"
+              style={{ maxWidth: '360px', backgroundColor: 'var(--bg-card)', borderRadius: '24px', boxShadow: '0 24px 60px rgba(7,30,73,0.35)' }}
               initial={{ opacity: 0, scale: 0.96, y: 8 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.96, y: 8 }}
               onClick={(e) => e.stopPropagation()}
             >
-              <h3 className="font-semibold" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>Generate Ulang QR</h3>
+              <h3 className="font-bold" style={{ color: 'var(--navy)', fontSize: '16px' }}>Generate Ulang QR</h3>
               <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                 QR lama akan langsung invalid. Lanjutkan?
               </p>

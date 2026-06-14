@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { motion } from 'framer-motion';
+import Image from 'next/image';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/useAuth';
 import { logout } from '@/lib/api/auth';
 import { uploadMenuToday, fetchMenuToday } from '@/lib/api/menu';
@@ -14,7 +15,21 @@ import type { MenuResponse, SchoolQR } from '@/types/api';
 import type { ProcessTimeline } from '@/types/sppg';
 import type { RekapAI } from '@/types/ai';
 import CameraCapture from '@/components/shared/CameraCapture';
+import QRScanner from '@/components/shared/QRScanner';
 import { useRouter } from 'next/navigation';
+
+// QR pengiriman meng-encode URL `.../delivery/confirm/<token>`. Ambil segmen
+// terakhir sebagai token. Bila yang dipindai cuma token mentah, kembalikan apa adanya.
+function extractToken(decoded: string): string {
+  const text = decoded.trim();
+  try {
+    const parts = new URL(text).pathname.split('/').filter(Boolean);
+    return parts[parts.length - 1] || text;
+  } catch {
+    const parts = text.split('/').filter(Boolean);
+    return parts[parts.length - 1] || text;
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -27,18 +42,17 @@ function blobToBase64(blob: Blob): Promise<string> {
   });
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({ title, children, delay = 0 }: { title: string; children: React.ReactNode; delay?: number }) {
   return (
-    <motion.div
-      className="rounded-2xl p-4"
-      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
+    <motion.section
+      className="card p-5"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
+      transition={{ duration: 0.3, delay }}
     >
-      <h2 className="font-semibold mb-3" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>{title}</h2>
+      <h2 className="font-bold mb-4 pl-3" style={{ color: 'var(--navy)', fontSize: '16px', borderLeft: '3px solid var(--green)' }}>{title}</h2>
       {children}
-    </motion.div>
+    </motion.section>
   );
 }
 
@@ -57,10 +71,15 @@ function ErrorBox({ msg }: { msg: string }) {
 
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-2xl shadow-lg text-sm font-medium"
-      style={{ backgroundColor: ok ? 'var(--green)' : '#E05050', color: ok ? 'var(--navy)' : '#fff', maxWidth: '320px' }}>
+    <motion.div
+      className="fixed bottom-6 left-1/2 z-50 px-4 py-3 rounded-2xl shadow-lg text-sm font-semibold"
+      style={{ backgroundColor: ok ? 'var(--green)' : '#E05050', color: '#fff', maxWidth: '320px' }}
+      initial={{ opacity: 0, y: 24, x: '-50%' }}
+      animate={{ opacity: 1, y: 0, x: '-50%' }}
+      exit={{ opacity: 0, y: 24, x: '-50%' }}
+    >
       {msg}
-    </div>
+    </motion.div>
   );
 }
 
@@ -111,8 +130,8 @@ export default function DashboardPage() {
   const [pageLoading, setPageLoading] = useState(true);
   const [pageErr,     setPageErr]     = useState('');
 
-  // Delivery QR state
-  const [deliveryStep, setDeliveryStep] = useState<'idle' | 'camera'>('idle');
+  // Delivery QR state — alur: idle → scanning (pindai QR) → camera (foto bukti)
+  const [deliveryStep, setDeliveryStep] = useState<'idle' | 'scanning' | 'camera'>('idle');
   const [activeQR,     setActiveQR]     = useState<SchoolQR | null>(null);
   const [deliveryErr,  setDeliveryErr]  = useState('');
 
@@ -187,19 +206,28 @@ export default function DashboardPage() {
 
   // ── Delivery confirm ──────────────────────────────────────────
 
-  const handleDeliveryStart = useCallback(async (qr: SchoolQR) => {
+  // Mulai: buka kamera pemindai QR untuk sekolah ini (kamera foto BELUM aktif).
+  const handleDeliveryStart = useCallback((qr: SchoolQR) => {
     if (!qr.delivery_token) return;
     setDeliveryErr('');
-    try {
-      const res = await validateQR(qr.delivery_token);
-      if (!res.valid) { setDeliveryErr(res.message); return; }
-      setActiveQR(qr);
-      setDeliveryStep('camera');
-    } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : typeof e === 'string' ? e : 'Gagal memvalidasi QR.';
-      setDeliveryErr(msg);
-    }
+    setActiveQR(qr);
+    setDeliveryStep('scanning');
   }, []);
+
+  // Dipanggil QRScanner saat QR terdeteksi. Validasi ke backend (constraint #4):
+  // QR harus valid, jenis delivery, dan milik sekolah yang sedang dikonfirmasi.
+  // Lempar error → scanner menampilkan pesan + "Pindai Lagi" (tidak menutup).
+  const handleQRScanned = useCallback(async (decoded: string) => {
+    const token = extractToken(decoded);
+    const res = await validateQR(token);
+    if (!res.valid) throw new Error(res.message || 'QR tidak valid.');
+    if (res.kind !== 'delivery') throw new Error('QR ini bukan QR pengiriman.');
+    if (activeQR && token !== activeQR.delivery_token) {
+      throw new Error(`QR yang dipindai bukan untuk ${activeQR.school_name}.`);
+    }
+    // Valid & cocok → baru kamera foto bukti diaktifkan.
+    setDeliveryStep('camera');
+  }, [activeQR]);
 
   const handleDeliveryPhoto = useCallback(async (blob: Blob) => {
     if (!activeQR?.delivery_token) return;
@@ -265,26 +293,26 @@ export default function DashboardPage() {
   if (!mounted) return null;
 
   return (
-    <motion.div
-      className="mx-auto px-4 py-6 flex flex-col gap-4"
-      style={{ maxWidth: '520px' }}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-    >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Dashboard Operator</p>
-          <h1 className="font-bold" style={{ color: 'var(--navy)', fontSize: '17px' }} suppressHydrationWarning>{sppgName}</h1>
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      {/* Header band navy */}
+      <header className="bg-gradient-navy">
+        <div className="mx-auto px-4 py-6 lg:px-8 flex items-center justify-between" style={{ maxWidth: '560px' }}>
+          <div className="min-w-0">
+            <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-bold mb-1.5"
+              style={{ backgroundColor: 'rgba(255,255,255,0.14)', color: 'var(--gold)' }}>
+              Operator
+            </span>
+            <h1 className="font-bold text-white truncate" style={{ fontSize: '20px', letterSpacing: '-0.01em' }} suppressHydrationWarning>{sppgName}</h1>
+          </div>
+          <button onClick={() => { logout(); router.replace('/login'); }}
+            className="btn-outline-light text-xs px-4 shrink-0"
+            style={{ height: '38px' }}>
+            Keluar
+          </button>
         </div>
-        <button onClick={() => { logout(); router.replace('/login'); }}
-          className="text-xs px-3 py-1.5 rounded-xl"
-          style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
-          Keluar
-        </button>
-      </div>
+      </header>
 
+      <div className="mx-auto px-4 py-6 lg:px-8 flex flex-col gap-4" style={{ maxWidth: '560px' }}>
       {pageErr && <ErrorBox msg={pageErr} />}
 
       {pageLoading ? (
@@ -297,19 +325,17 @@ export default function DashboardPage() {
         <>
           {/* Menu harian */}
           <motion.div
-            className="rounded-2xl p-4 relative"
-            style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
+            className="card p-5 relative"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.25 }}
+            transition={{ duration: 0.3 }}
           >
-            <h2 className="font-semibold mb-3" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>Menu Hari Ini</h2>
+            <h2 className="font-bold mb-4 pl-3" style={{ color: 'var(--navy)', fontSize: '16px', borderLeft: '3px solid var(--green)' }}>Menu Hari Ini</h2>
 
             {/* Tombol Edit kecil — hanya saat sudah ada data & tidak sedang edit */}
             {menuToday && !editing && !menuFetching && (
               <button type="button" onClick={startEditMenu}
-                className="absolute top-3 right-3 text-xs px-3 py-1.5 rounded-xl"
-                style={{ border: '1px solid var(--border)', color: 'var(--text-secondary)' }}>
+                className="btn-outline absolute top-4 right-4 text-xs px-3 py-1.5">
                 Edit
               </button>
             )}
@@ -320,9 +346,10 @@ export default function DashboardPage() {
               /* Sudah ada data → preview foto + teks */
               <div className="flex flex-col gap-3">
                 {menuToday.photo_url && (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img src={menuToday.photo_url} alt="Foto menu hari ini"
-                    className="w-full max-h-48 object-cover rounded-xl" />
+                  <div className="relative w-full h-48 rounded-xl overflow-hidden">
+                    <Image src={menuToday.photo_url} alt="Foto menu hari ini" fill
+                      sizes="(max-width: 560px) 100vw, 560px" className="object-cover" />
+                  </div>
                 )}
                 <p className="text-sm" style={{ color: 'var(--text-primary)' }}>{menuToday.description}</p>
               </div>
@@ -379,7 +406,7 @@ export default function DashboardPage() {
           </motion.div>
 
           {/* Proses dapur */}
-          <SectionCard title="Proses Dapur">
+          <SectionCard title="Proses Dapur" delay={0.05}>
             <div className="flex flex-col gap-4">
               {(['persiapan', 'masak'] as const).map((stage) => {
                 const s        = process?.[stage];
@@ -396,9 +423,10 @@ export default function DashboardPage() {
                     </div>
 
                     {photoUrl && (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={photoUrl} alt={`Foto ${stage}`}
-                        className="w-full h-40 object-cover rounded-xl" />
+                      <div className="relative w-full h-40 rounded-xl overflow-hidden">
+                        <Image src={photoUrl} alt={`Foto ${stage}`} fill
+                          sizes="(max-width: 560px) 100vw, 560px" className="object-cover" />
+                      </div>
                     )}
 
                     <CameraCapture
@@ -413,8 +441,19 @@ export default function DashboardPage() {
           </SectionCard>
 
           {/* Konfirmasi pengiriman */}
-          <SectionCard title="Konfirmasi Pengiriman">
-            {deliveryStep === 'camera' && activeQR ? (
+          <SectionCard title="Konfirmasi Pengiriman" delay={0.1}>
+            {deliveryStep === 'scanning' && activeQR ? (
+              <div className="flex flex-col gap-3">
+                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                  Pindai QR pengiriman yang tertempel di <strong>{activeQR.school_name}</strong>.
+                </p>
+                <QRScanner
+                  label="Buka Kamera Pemindai"
+                  onDetected={handleQRScanned}
+                  onCancel={() => { setDeliveryStep('idle'); setActiveQR(null); }}
+                />
+              </div>
+            ) : deliveryStep === 'camera' && activeQR ? (
               <div className="flex flex-col gap-3">
                 <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
                   QR valid. Foto bukti pengiriman ke <strong>{activeQR.school_name}</strong>
@@ -450,9 +489,10 @@ export default function DashboardPage() {
                         )}
                       </div>
                       {done && photoUrl && (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={photoUrl} alt={`Bukti pengiriman ${qr.school_name}`}
-                          className="w-full max-h-48 object-cover rounded-xl" />
+                        <div className="relative w-full h-48 rounded-xl overflow-hidden">
+                          <Image src={photoUrl} alt={`Bukti pengiriman ${qr.school_name}`} fill
+                            sizes="(max-width: 560px) 100vw, 560px" className="object-cover" />
+                        </div>
                       )}
                     </div>
                   );
@@ -462,22 +502,14 @@ export default function DashboardPage() {
           </SectionCard>
 
           {/* Rekap AI */}
-          <SectionCard title="Rekap AI">
-            <div className="flex gap-2 mb-3">
+          <SectionCard title="Rekap AI" delay={0.15}>
+            <div className="flex gap-5 mb-4" style={{ borderBottom: '1px solid var(--border)' }}>
               <button type="button" onClick={() => setAiTab('weekly')}
-                className="pill px-3 py-1.5 text-xs"
-                style={{
-                  backgroundColor: aiTab === 'weekly' ? 'var(--navy)' : 'var(--bg-surface)',
-                  color: aiTab === 'weekly' ? '#fff' : 'var(--text-secondary)',
-                }}>
+                className={`tab-underline pb-2.5 text-sm ${aiTab === 'weekly' ? 'active' : ''}`}>
                 Mingguan
               </button>
               <button type="button" onClick={openMonthly}
-                className="pill px-3 py-1.5 text-xs"
-                style={{
-                  backgroundColor: aiTab === 'monthly' ? 'var(--navy)' : 'var(--bg-surface)',
-                  color: aiTab === 'monthly' ? '#fff' : 'var(--text-secondary)',
-                }}>
+                className={`tab-underline pb-2.5 text-sm ${aiTab === 'monthly' ? 'active' : ''}`}>
                 Bulanan
               </button>
             </div>
@@ -514,8 +546,11 @@ export default function DashboardPage() {
           </SectionCard>
         </>
       )}
+      </div>
 
-      {toast && <Toast msg={toast.msg} ok={toast.ok} />}
+      <AnimatePresence>
+        {toast && <Toast msg={toast.msg} ok={toast.ok} />}
+      </AnimatePresence>
     </motion.div>
   );
 }

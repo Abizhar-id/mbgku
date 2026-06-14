@@ -17,7 +17,7 @@ import uuid
 
 import bcrypt
 import qrcode
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from supabase import Client
@@ -25,6 +25,7 @@ from supabase import Client
 from app.core.auth import CurrentAdmin, create_admin_token, get_current_admin
 from app.core.config import settings
 from app.core.database import get_supabase
+from app.core.ratelimit import limiter
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -138,7 +139,8 @@ def _qr_png(school_id: int, kind: str, db: Client) -> Response:
 # ── Auth ───────────────────────────────────────────────────────────
 
 @router.post("/login", response_model=AdminLoginResponse)
-def admin_login(body: AdminLoginRequest, db: Client = Depends(get_supabase)):
+@limiter.limit("5/minute")
+def admin_login(request: Request, body: AdminLoginRequest, db: Client = Depends(get_supabase)):
     """Login admin. Verifikasi password bcrypt dari tabel admin."""
     rows = (
         db.table("admin")

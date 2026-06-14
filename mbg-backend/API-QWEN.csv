@@ -1,8 +1,0 @@
-﻿id,345019
-apiKey,sk-ws-H.ILRMDX.1uRV.MEYCIQCP9e1t_8qN_WJOGzljDLqwzVvmadYNeXLIMu46EcuSSgIhAPqS71hOfVfWKhAcursXIffdDJjRkGcbmcYNJeML8rOa
-apiHost,ws-c5cet4w8oqqwkahw.ap-southeast-1.maas.aliyuncs.com
-openAiCompatible,https://ws-c5cet4w8oqqwkahw.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1
-dashScope,https://ws-c5cet4w8oqqwkahw.ap-southeast-1.maas.aliyuncs.com/api/v1
-description,Olivia Qwen 3-6 flash
-workspaceName,Default Workspace
-workspaceId,ws-c5cet4w8oqqwkahw

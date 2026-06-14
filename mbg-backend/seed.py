@@ -15,7 +15,17 @@ Membuat 3 SPPG (1 bagus, 1 sedang, 1 bermasalah) x 3 sekolah, plus:
 import secrets
 from datetime import date, datetime, timedelta, timezone
 
+import bcrypt
+
 from app.core.database import supabase
+
+# Prototype: password operator simpel & seragam (tetap di-hash bcrypt di DB).
+OPERATOR_PASSWORD = "sppg123"
+
+
+def hash_password(plain: str) -> str:
+    """Hash bcrypt — disimpan di kolom `password` (nama kolom dipertahankan, isi hash)."""
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 random_seed = 42
 import random
@@ -90,10 +100,14 @@ def main() -> None:
         sppg_id = sppg["id"]
         print(f"  SPPG: {name} (id={sppg_id}, profil={profile})")
 
-        # operator login → username unik, password 'sppg123'
+        # operator login → username unik, password simpel (di-hash bcrypt)
         username = f"{name.split()[1].lower()}{sppg_id}"
-        insert("operator", [{"sppg_id": sppg_id, "username": username, "password": "sppg123"}])
-        print(f"     login: {username} / sppg123")
+        insert("operator", [{
+            "sppg_id": sppg_id,
+            "username": username,
+            "password": hash_password(OPERATOR_PASSWORD),
+        }])
+        print(f"     login: {username} / {OPERATOR_PASSWORD}")
 
         # sekolah
         schools = insert("school", [{"sppg_id": sppg_id, "name": n} for n in SCHOOL_NAMES[name]])
@@ -162,6 +176,7 @@ def main() -> None:
         print(f"     {len(schools)} sekolah · {len(qr_rows)} QR · {len(deliveries)} delivery · {len(feedbacks)} feedback")
 
     print("Selesai OK  Data siap dipakai.")
+    print(f"   Semua operator login pakai password: {OPERATOR_PASSWORD} (di DB tersimpan sbg hash).")
 
 
 if __name__ == "__main__":

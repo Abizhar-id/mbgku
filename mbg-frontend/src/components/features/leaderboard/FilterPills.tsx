@@ -19,12 +19,7 @@ export default function FilterPills({
           <button
             key={opt.value}
             onClick={() => onChange(opt.value)}
-            className="text-xs font-medium px-3 py-1.5 rounded-full transition-colors"
-            style={{
-              backgroundColor: active ? 'var(--navy)' : 'var(--bg-card)',
-              color: active ? '#fff' : 'var(--text-secondary)',
-              border: '1px solid var(--border)',
-            }}
+            className={`pill text-xs px-3.5 py-2 ${active ? 'active' : ''}`}
           >
             {opt.label}
           </button>

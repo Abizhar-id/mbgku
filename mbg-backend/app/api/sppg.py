@@ -4,7 +4,9 @@ Endpoints SPPG:
   GET /sppg               → list semua SPPG
   GET /sppg/{sppg_id}     → profil lengkap 1 SPPG
 """
-from datetime import date, timedelta
+import time
+from collections import defaultdict
+from datetime import date, datetime, timedelta
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,6 +16,17 @@ from supabase import Client
 from app.core.database import get_supabase
 
 router = APIRouter(prefix="/sppg", tags=["sppg"])
+
+# Statistik hanya menghitung data 30 hari terakhir (cukup untuk leaderboard &
+# mencegah scan tabel penuh saat data historis menumpuk).
+STATS_WINDOW_DAYS = 30
+STATS_ROW_LIMIT = 50_000   # batas keras agar query tidak unbounded
+
+# Cache in-memory leaderboard (TTL 60 dtk). Mengurangi 2 query tabel + agregasi
+# di tiap request publik menjadi sekali per menit. Aman untuk 1 worker; untuk
+# multi-worker tiap worker punya cache sendiri (tetap valid, hanya kurang hemat).
+_CACHE_TTL = 60  # detik
+_leaderboard_cache: dict = {"data": None, "ts": 0.0}
 
 
 # ── Response schemas ───────────────────────────────────────────────
@@ -58,48 +71,76 @@ class SPPGProfile(BaseModel):
 
 # ── Helper ─────────────────────────────────────────────────────────
 
-def _calc_stats(sppg_id: int, db: Client) -> dict:
-    """Hitung avg_rating dan delivery_rate untuk 1 SPPG.
+_ZERO_STATS = {"avg_rating": 0.0, "total_feedback": 0, "delivery_rate": 0.0}
 
-    delivery_rate = % pengiriman yang "tepat", yaitu (arrived_at - sent_at) <= 30 menit.
+
+def _is_tepat(d: dict) -> bool:
+    """Pengiriman 'tepat' = selisih (arrived_at - sent_at) <= 30 menit."""
+    if not d.get("sent_at") or not d.get("arrived_at"):
+        return False
+    try:
+        sent = datetime.fromisoformat(d["sent_at"])
+        arrived = datetime.fromisoformat(d["arrived_at"])
+        return (arrived - sent).total_seconds() <= 1800
+    except Exception:
+        return False
+
+
+def _all_stats(db: Client) -> dict[int, dict]:
+    """Hitung avg_rating, total_feedback, delivery_rate UNTUK SEMUA SPPG dalam 2 query.
+
+    Ganti pola N+1 (2 query per SPPG) → 2 query total, lalu agregasi di Python.
+    Hanya memproses data `STATS_WINDOW_DAYS` hari terakhir + `.limit()` eksplisit
+    agar tidak men-scan seluruh tabel historis (perf + hindari diam-diam terpotong
+    di default-limit PostgREST).
     """
-    feedbacks = db.table("feedback").select("rating").eq("sppg_id", sppg_id).execute().data
-    avg_rating = round(sum(f["rating"] for f in feedbacks) / len(feedbacks), 2) if feedbacks else 0.0
+    since = (date.today() - timedelta(days=STATS_WINDOW_DAYS)).isoformat()
+    feedbacks = (
+        db.table("feedback")
+        .select("sppg_id, rating")
+        .gte("created_at", since)
+        .limit(STATS_ROW_LIMIT)
+        .execute()
+        .data
+    )
+    deliveries = (
+        db.table("delivery")
+        .select("sppg_id, sent_at, arrived_at")
+        .gte("delivery_date", since)
+        .limit(STATS_ROW_LIMIT)
+        .execute()
+        .data
+    )
 
-    deliveries = db.table("delivery").select("sent_at, arrived_at").eq("sppg_id", sppg_id).execute().data
+    ratings_by: dict[int, list[int]] = defaultdict(list)
+    for f in feedbacks:
+        ratings_by[f["sppg_id"]].append(f["rating"])
 
-    def is_tepat(d):
-        if not d.get("sent_at") or not d.get("arrived_at"):
-            return False
-        try:
-            from datetime import datetime
-            sent = datetime.fromisoformat(d["sent_at"])
-            arrived = datetime.fromisoformat(d["arrived_at"])
-            return (arrived - sent).total_seconds() <= 1800
-        except Exception:
-            return False
+    deliv_by: dict[int, list[dict]] = defaultdict(list)
+    for d in deliveries:
+        deliv_by[d["sppg_id"]].append(d)
 
-    tepat = sum(1 for d in deliveries if is_tepat(d))
-    delivery_rate = round(tepat / len(deliveries) * 100, 1) if deliveries else 0.0
-
-    return {
-        "avg_rating": avg_rating,
-        "total_feedback": len(feedbacks),
-        "delivery_rate": delivery_rate,
-    }
+    stats: dict[int, dict] = {}
+    for sid in set(ratings_by) | set(deliv_by):
+        ratings = ratings_by.get(sid, [])
+        ds = deliv_by.get(sid, [])
+        tepat = sum(1 for d in ds if _is_tepat(d))
+        stats[sid] = {
+            "avg_rating": round(sum(ratings) / len(ratings), 2) if ratings else 0.0,
+            "total_feedback": len(ratings),
+            "delivery_rate": round(tepat / len(ds) * 100, 1) if ds else 0.0,
+        }
+    return stats
 
 
 # ── Endpoints ──────────────────────────────────────────────────────
 
-@router.get("/leaderboard", response_model=list[SPPGSummary])
-def get_leaderboard(db: Client = Depends(get_supabase)):
-    """Semua SPPG diurutkan dari ketepatan pengiriman tertinggi."""
+def _build_leaderboard(db: Client) -> list[SPPGSummary]:
+    """Bangun leaderboard dari DB (tanpa cache). Dipanggil oleh _get_leaderboard_cached."""
     sppg_list = db.table("sppg").select("id, name, address").execute().data
+    stats = _all_stats(db)
 
-    results = []
-    for sppg in sppg_list:
-        stats = _calc_stats(sppg["id"], db)
-        results.append({**sppg, **stats})
+    results = [{**sppg, **stats.get(sppg["id"], _ZERO_STATS)} for sppg in sppg_list]
 
     # Sort: delivery_rate dulu, avg_rating sebagai tiebreaker
     results.sort(key=lambda x: (x["delivery_rate"], x["avg_rating"]), reverse=True)
@@ -107,31 +148,51 @@ def get_leaderboard(db: Client = Depends(get_supabase)):
     return [SPPGSummary(**{**r, "rank": i + 1}) for i, r in enumerate(results)]
 
 
+def _get_leaderboard_cached(db: Client) -> list[SPPGSummary]:
+    """Leaderboard dengan cache in-memory TTL 60 dtk."""
+    now = time.time()
+    if _leaderboard_cache["data"] is not None and now - _leaderboard_cache["ts"] < _CACHE_TTL:
+        return _leaderboard_cache["data"]
+    data = _build_leaderboard(db)
+    _leaderboard_cache.update({"data": data, "ts": now})
+    return data
+
+
+@router.get("/leaderboard", response_model=list[SPPGSummary])
+def get_leaderboard(db: Client = Depends(get_supabase)):
+    """Semua SPPG diurutkan dari ketepatan pengiriman tertinggi (cache 60 dtk)."""
+    return _get_leaderboard_cached(db)
+
+
 @router.get("", response_model=list[SPPGSummary])
 def get_sppg_list(db: Client = Depends(get_supabase)):
     """List semua SPPG (sama seperti leaderboard tapi tanpa sort ketat)."""
-    return get_leaderboard(db)
+    return _get_leaderboard_cached(db)
 
 
 @router.get("/{sppg_id}", response_model=SPPGProfile)
 def get_sppg_profile(sppg_id: int, db: Client = Depends(get_supabase)):
     """Profil lengkap 1 SPPG: stats + 7 hari delivery + menu minggu ini."""
 
-    # Cek SPPG ada
-    sppg_data = db.table("sppg").select("id, name, address").eq("id", sppg_id).execute().data
-    if not sppg_data:
+    # Ambil semua SPPG sekali (buat cek keberadaan + hitung rank), stats sekali.
+    all_sppg = db.table("sppg").select("id, name, address").execute().data
+    sppg = next((s for s in all_sppg if s["id"] == sppg_id), None)
+    if not sppg:
         raise HTTPException(status_code=404, detail="SPPG tidak ditemukan")
-    sppg = sppg_data[0]
 
-    # Stats
-    stats = _calc_stats(sppg_id, db)
+    all_stats = _all_stats(db)
+    stats = all_stats.get(sppg_id, _ZERO_STATS)
 
-    # Rank — hitung posisi di antara semua SPPG (konsisten dengan leaderboard:
-    # delivery_rate dulu, avg_rating sebagai tiebreaker)
-    all_sppg = db.table("sppg").select("id").execute().data
-    all_stats = [(s["id"], _calc_stats(s["id"], db)) for s in all_sppg]
-    all_stats.sort(key=lambda x: (x[1]["delivery_rate"], x[1]["avg_rating"]), reverse=True)
-    rank = next((i + 1 for i, (sid, _) in enumerate(all_stats) if sid == sppg_id), 1)
+    # Rank — konsisten dengan leaderboard (delivery_rate dulu, avg_rating tiebreaker)
+    ranking = sorted(
+        all_sppg,
+        key=lambda s: (
+            all_stats.get(s["id"], _ZERO_STATS)["delivery_rate"],
+            all_stats.get(s["id"], _ZERO_STATS)["avg_rating"],
+        ),
+        reverse=True,
+    )
+    rank = next((i + 1 for i, s in enumerate(ranking) if s["id"] == sppg_id), 1)
 
     # Delivery 7 hari terakhir (join manual karena Supabase PostgREST)
     week_ago = (date.today() - timedelta(days=7)).isoformat()

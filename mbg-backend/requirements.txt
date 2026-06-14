@@ -9,3 +9,6 @@ pyjwt
 python-multipart
 qrcode[pil]
 bcrypt
+apscheduler
+pytz
+slowapi

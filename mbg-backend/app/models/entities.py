@@ -1,10 +1,3 @@
-"""
-Pydantic models = bentuk baris tabel. Dipakai buat validasi & type-safety
-saat baca/tulis ke Supabase. Skema tabel asli ada di models/schema.sql.
-
-Catatan: kolom pakai bahasa Inggris (sesuai aturan CLAUDE.md), dan sengaja
-menghindari reserved word SQL (mis. `kind`, bukan `type`).
-"""
 from datetime import date, datetime
 from typing import Optional
 

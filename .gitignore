@@ -1,18 +1,38 @@
-# Environment files
-mbg-backend/.env
-mbg-frontend/.env
-mbg-frontend/.env.local
+# ── Environment / secrets (JANGAN commit) ───────────────────────
+# Tutup semua varian .env di mana pun, KECUALI .env.example (template aman).
+.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
-# Python
-mbg-backend/venv/
-mbg-backend/__pycache__/
-mbg-backend/**/__pycache__/
-mbg-backend/**/*.pyc
+# Local tooling / editor settings (personal) → jangan di-push.
+.claude/
 
-# Node
-mbg-frontend/node_modules/
-mbg-frontend/.next/
+# File kredensial provider (berisi API key Qwen asli) → JANGAN di-push.
+mbg-backend/API-QWEN.csv
+*.key
+*.pem
 
-# Misc
+# ── Python ──────────────────────────────────────────────────────
+venv/
+**/venv/
+__pycache__/
+**/__pycache__/
+*.pyc
+**/*.pyc
+
+# ── Node / Next.js ──────────────────────────────────────────────
+node_modules/
+**/node_modules/
+.next/
+**/.next/
+
+# ── Misc ────────────────────────────────────────────────────────
 .DS_Store
 *.log
+
+# Snapshot/duplikat lama (bukan kode aktif)
+test/
+*.zip

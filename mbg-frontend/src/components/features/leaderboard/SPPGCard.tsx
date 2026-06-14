@@ -5,10 +5,10 @@ import { motion } from 'framer-motion';
 import type { SPPG } from '@/types/sppg';
 
 function rankStyle(rank: number) {
-  if (rank === 1) return { bg: '#F5B82E', color: '#FFFFFF' };               // emas
-  if (rank === 2) return { bg: '#A8A8A8', color: '#FFFFFF' };               // perak
-  if (rank === 3) return { bg: '#CD7F32', color: '#FFFFFF' };               // perunggu
-  return           { bg: 'var(--bg-surface)', color: 'var(--text-secondary)' };
+  if (rank === 1) return { bg: 'var(--gold)',   color: '#FFFFFF' };  // emas
+  if (rank === 2) return { bg: '#A8A8A8',       color: '#FFFFFF' };  // perak
+  if (rank === 3) return { bg: '#CD7F32',       color: '#FFFFFF' };  // perunggu
+  return           { bg: 'var(--bg-surface)',   color: 'var(--text-secondary)' };  // abu (4+)
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -28,23 +28,22 @@ function Stars({ rating }: { rating: number }) {
 export default function SPPGCard({ sppg }: { sppg: SPPG }) {
   const rs = rankStyle(sppg.rank);
   return (
-    <motion.div variants={{ hidden: { opacity: 0, y: 10 }, visible: { opacity: 1, y: 0 } }}>
+    <motion.div variants={{ hidden: { opacity: 0, y: 12 }, visible: { opacity: 1, y: 0 } }}>
       <Link href={`/sppg/${sppg.id}`}
-        className="flex items-start gap-3 rounded-2xl p-5 transition hover:-translate-y-0.5 lg:hover:shadow-md"
-        style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}>
+        className="card card-hover-lift flex items-center gap-4 p-5">
         {/* Rank badge */}
-        <div className="w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base shrink-0"
+        <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-lg shrink-0"
           style={{ backgroundColor: rs.bg, color: rs.color }}>
           {sppg.rank}
         </div>
         {/* Info */}
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-base truncate" style={{ color: 'var(--text-primary)' }}>{sppg.name}</p>
+          <p className="font-bold text-base truncate" style={{ color: 'var(--text-primary)' }}>{sppg.name}</p>
           <p className="text-xs truncate mt-0.5" style={{ color: 'var(--text-tertiary)' }}>{sppg.address}</p>
-          <div className="flex items-center gap-1.5 mt-2 flex-wrap" style={{ color: 'var(--text-tertiary)' }}>
+          <div className="flex items-center gap-2 mt-2 flex-wrap" style={{ color: 'var(--text-tertiary)' }}>
             <span className="flex items-center gap-1">
               <Stars rating={sppg.avg_rating} />
-              <span className="text-xs font-medium" style={{ color: 'var(--text-secondary)' }}>{sppg.avg_rating.toFixed(1)}</span>
+              <span className="text-xs font-semibold" style={{ color: 'var(--text-secondary)' }}>{sppg.avg_rating.toFixed(1)}</span>
             </span>
             <span className="text-xs" aria-hidden="true">·</span>
             <span className="text-xs">Ketepatan {sppg.delivery_rate}%</span>
@@ -54,7 +53,7 @@ export default function SPPGCard({ sppg }: { sppg: SPPG }) {
         </div>
         {/* Delivery rate */}
         <div className="text-right shrink-0">
-          <p className="font-bold text-base" style={{ color: 'var(--navy)' }}>{sppg.delivery_rate}%</p>
+          <p className="font-bold text-xl" style={{ color: 'var(--navy)' }}>{sppg.delivery_rate}%</p>
           <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>tepat</p>
         </div>
       </Link>

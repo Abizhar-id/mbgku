@@ -9,16 +9,18 @@ Nama sekolah otomatis dari token → frontend lock, siswa tak bisa ganti.
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from supabase import Client
 
 from app.core.database import get_supabase
+from app.core.ratelimit import limiter
 
 router = APIRouter(prefix="/feedback", tags=["feedback"])
 
 WIB = timezone(timedelta(hours=7))
 OPEN_HOUR, CLOSE_HOUR = 9, 12
+MAX_FEEDBACK_PER_TOKEN_PER_DAY = 3   # batas submit per sekolah/token per hari
 
 
 def _window_open() -> bool:
@@ -117,12 +119,37 @@ def get_public_feedback(sppg_id: int, db: Client = Depends(get_supabase)):
 
 
 @router.post("/{token}")
-def submit_feedback(token: str, body: FeedbackSubmit, db: Client = Depends(get_supabase)):
-    """Submit feedback. Sekolah & SPPG diambil dari token (bukan dari input siswa)."""
+@limiter.limit("10/minute")   # anti-spam per IP → 429 "Terlalu banyak request..."
+def submit_feedback(request: Request, token: str, body: FeedbackSubmit, db: Client = Depends(get_supabase)):
+    """Submit feedback. Sekolah & SPPG diambil dari token (bukan dari input siswa).
+
+    Anti-spam berlapis:
+      1. Rate limit per IP (slowapi, 10/menit) — di decorator.
+      2. Batas per token/sekolah per hari (MAX_FEEDBACK_PER_TOKEN_PER_DAY).
+      3. Jendela waktu 09.00-12.00 WIB tetap berlaku.
+    """
     qr = _get_feedback_qr(token, db)
 
     if not _window_open():
         raise HTTPException(status_code=403, detail="Form feedback hanya dibuka pukul 09.00-12.00 WIB.")
+
+    # Batas harian per sekolah (token statis = identitas sekolah). Hitung feedback
+    # hari ini untuk (sppg, sekolah) tsejak 00:00 WIB.
+    day_start = datetime.now(WIB).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    today_count = (
+        db.table("feedback")
+        .select("id", count="exact")
+        .eq("sppg_id", qr["sppg_id"])
+        .eq("school_id", qr["school_id"])
+        .gte("created_at", day_start)
+        .execute()
+        .count
+    ) or 0
+    if today_count >= MAX_FEEDBACK_PER_TOKEN_PER_DAY:
+        raise HTTPException(
+            status_code=429,
+            detail="Feedback untuk sekolah ini sudah mencapai batas hari ini.",
+        )
 
     db.table("feedback").insert({
         "sppg_id": qr["sppg_id"],

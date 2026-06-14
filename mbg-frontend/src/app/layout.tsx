@@ -9,7 +9,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'MBG Transparency Platform',
+  title: 'MBGku',
   description: 'Monitoring performa SPPG program Makan Bergizi Gratis',
 };
 

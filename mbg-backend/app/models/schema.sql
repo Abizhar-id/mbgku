@@ -40,11 +40,13 @@ create table school (
 );
 
 -- ── Operator SPPG (login dashboard) ───────────────────────────────
+--  Kolom `password` BERISI HASH BCRYPT (nama kolom dipertahankan agar tanpa
+--  migrasi). Seed lewat `python seed.py` / `python setup_prototype_accounts.py`.
 create table operator (
     id          bigserial primary key,
     sppg_id     bigint not null references sppg(id) on delete cascade,
     username    text not null unique,
-    password    text not null   -- PLAINTEXT: prototype only, ganti sebelum produksi
+    password    text not null   -- bcrypt hash (BUKAN plaintext)
 );
 
 -- ── Pengiriman / tahap "Pengiriman" (per sekolah, butuh scan QR) ──

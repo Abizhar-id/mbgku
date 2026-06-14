@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { motion } from 'framer-motion';
 import type { SPPGProfile, ProcessTimeline } from '@/types/sppg';
 import type { RekapAI } from '@/types/ai';
@@ -12,15 +13,16 @@ import { fetchPublicFeedback } from '@/lib/api/feedback';
 
 // ── Shared helpers ────────────────────────────────────────────────
 
-function StarRating({ rating }: { rating: number }) {
+function StarRating({ rating, size = 'w-4 h-4', light = false }: { rating: number; size?: string; light?: boolean }) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((s) => (
-        <svg key={s} className="w-4 h-4" viewBox="0 0 20 20" fill={s <= Math.round(rating) ? 'var(--gold)' : 'var(--border)'}>
+        <svg key={s} className={size} viewBox="0 0 20 20"
+          fill={s <= Math.round(rating) ? 'var(--gold)' : (light ? 'rgba(255,255,255,0.25)' : 'var(--border)')}>
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
       ))}
-      <span className="ml-1 text-sm font-semibold" style={{ color: 'var(--text-primary)' }}>
+      <span className="ml-1 text-sm font-semibold" style={{ color: light ? '#FFFFFF' : 'var(--text-primary)' }}>
         {rating.toFixed(1)}
       </span>
     </div>
@@ -42,19 +44,25 @@ function StatusChip({ status }: { status: string }) {
   );
 }
 
-function SectionCard({ title, children }: { title: string; children: React.ReactNode }) {
+function SectionCard({ title, children, delay = 0 }: { title: string; children: React.ReactNode; delay?: number }) {
   return (
-    <motion.div
-      className="rounded-2xl p-4"
-      style={{ backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)' }}
-      initial={{ opacity: 0, y: 12 }}
+    <motion.section
+      className="card p-5"
+      initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
+      transition={{ duration: 0.3, delay }}
     >
-      <h2 className="font-semibold mb-3" style={{ color: 'var(--text-primary)', fontSize: '15px' }}>{title}</h2>
+      <h2 className="font-bold mb-4" style={{ color: 'var(--navy)', fontSize: '17px', letterSpacing: '-0.01em' }}>{title}</h2>
       {children}
-    </motion.div>
+    </motion.section>
   );
+}
+
+function rankBadge(rank: number) {
+  if (rank === 1) return { bg: 'var(--gold)', color: '#FFFFFF', label: 'Peringkat 1' };
+  if (rank === 2) return { bg: '#A8A8A8',     color: '#FFFFFF', label: 'Peringkat 2' };
+  if (rank === 3) return { bg: '#CD7F32',     color: '#FFFFFF', label: `Peringkat 3` };
+  return           { bg: 'rgba(255,255,255,0.16)', color: '#FFFFFF', label: `Peringkat ${rank}` };
 }
 
 function Skeleton({ className }: { className?: string }) {
@@ -195,57 +203,57 @@ export default function SPPGProfilePage() {
 
   const todayMenu = profile.today_menu;
 
-  return (
-    <motion.div
-      className="mx-auto px-4 py-6 flex flex-col gap-4"
-      style={{ maxWidth: '520px' }}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25 }}
-    >
-      {/* Header */}
-      <button
-        onClick={() => router.back()}
-        className="flex items-center gap-1 mb-1 text-sm"
-        style={{ color: 'var(--text-secondary)' }}
-      >
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        Kembali
-      </button>
+  const rb = rankBadge(profile.rank);
 
-      {/* Hero card */}
-      <div className="rounded-2xl p-5" style={{ backgroundColor: 'var(--navy)' }}>
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-xs font-medium mb-1" style={{ color: 'var(--pastel-blue)' }}>
-              Rank #{profile.rank}
-            </p>
-            <h1 className="font-bold text-white mb-1" style={{ fontSize: '18px' }}>{profile.name}</h1>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>{profile.address}</p>
-          </div>
-          <div className="text-right">
-            <StarRating rating={profile.avg_rating} />
-            <p className="text-xs mt-1" style={{ color: 'rgba(255,255,255,0.6)' }}>
-              {profile.total_feedback} ulasan
-            </p>
-          </div>
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}>
+      {/* ── Hero gradient ─────────────────────────────────────────────────── */}
+      <section className="bg-gradient-navy">
+        <div className="mx-auto px-4 pt-24 pb-8 lg:px-8" style={{ maxWidth: '640px' }}>
+          <button
+            onClick={() => router.back()}
+            className="link-arrow flex items-center gap-1 mb-5 text-sm"
+            style={{ color: 'rgba(255,255,255,0.75)' }}
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+            </svg>
+            Kembali
+          </button>
+
+          <span className="inline-flex items-center rounded-full px-3 py-1 text-xs font-bold mb-3"
+            style={{ backgroundColor: rb.bg, color: rb.color }}>
+            {rb.label}
+          </span>
+          <h1 className="font-bold text-white leading-tight" style={{ fontSize: 'clamp(22px, 4vw, 32px)', letterSpacing: '-0.02em' }}>
+            {profile.name}
+          </h1>
+          <p className="text-sm mt-2" style={{ color: 'rgba(255,255,255,0.65)' }}>{profile.address}</p>
         </div>
-        <div className="mt-4 flex gap-3">
-          <div className="flex-1 rounded-xl px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>Ketepatan Kirim</p>
-            <p className="font-bold text-white" style={{ fontSize: '18px' }}>{profile.delivery_rate}%</p>
+      </section>
+
+      {/* ── Konten ────────────────────────────────────────────────────────── */}
+      <div className="mx-auto px-4 py-6 flex flex-col gap-4 lg:px-8" style={{ maxWidth: '640px' }}>
+
+        {/* Stats bar — 3 kolom */}
+        <motion.div className="grid grid-cols-3 gap-3"
+          initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+          <div className="card p-4 flex flex-col items-center text-center">
+            <StarRating rating={profile.avg_rating} size="w-4 h-4" />
+            <p className="text-xs mt-1.5" style={{ color: 'var(--text-tertiary)' }}>Rating</p>
           </div>
-          <div className="flex-1 rounded-xl px-3 py-2" style={{ backgroundColor: 'rgba(255,255,255,0.08)' }}>
-            <p className="text-xs" style={{ color: 'rgba(255,255,255,0.6)' }}>Total Ulasan</p>
-            <p className="font-bold text-white" style={{ fontSize: '18px' }}>{profile.total_feedback}</p>
+          <div className="card p-4 flex flex-col items-center text-center justify-center">
+            <p className="font-bold" style={{ color: 'var(--navy)', fontSize: '22px' }}>{profile.delivery_rate}%</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Ketepatan</p>
           </div>
-        </div>
-      </div>
+          <div className="card p-4 flex flex-col items-center text-center justify-center">
+            <p className="font-bold" style={{ color: 'var(--navy)', fontSize: '22px' }}>{profile.total_feedback}</p>
+            <p className="text-xs mt-1" style={{ color: 'var(--text-tertiary)' }}>Ulasan</p>
+          </div>
+        </motion.div>
 
       {/* Proses hari ini */}
-      <SectionCard title="Proses Hari Ini">
+      <SectionCard title="Proses Hari Ini" delay={0.05}>
         {process ? (
           <div className="flex flex-col gap-3">
             {(['persiapan', 'masak'] as const).map((stage) => {
@@ -258,10 +266,11 @@ export default function SPPGProfilePage() {
                     <StatusChip status={s.done ? 'delivered' : 'pending'} />
                   </div>
                   {s.photo_url && (
-                    <button type="button" onClick={() => setLightbox(s.photo_url!)} className="block">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={s.photo_url} alt={`Foto ${stage}`}
-                        className="w-full h-36 object-cover rounded-xl" />
+                    <button type="button" onClick={() => setLightbox(s.photo_url!)} className="block w-full">
+                      <div className="photo-zoom relative w-full h-36 rounded-xl overflow-hidden">
+                        <Image src={s.photo_url} alt={`Foto ${stage}`} fill
+                          sizes="(max-width: 640px) 100vw, 640px" className="object-cover" />
+                      </div>
                     </button>
                   )}
                 </div>
@@ -293,10 +302,11 @@ export default function SPPGProfilePage() {
                     )}
                   </div>
                   {d.done && d.photo_url && (
-                    <button type="button" onClick={() => setLightbox(d.photo_url!)} className="block">
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={d.photo_url} alt={`Bukti pengiriman ${d.school_name}`}
-                        className="w-full max-h-48 object-cover rounded-xl" />
+                    <button type="button" onClick={() => setLightbox(d.photo_url!)} className="block w-full">
+                      <div className="photo-zoom relative w-full h-48 rounded-xl overflow-hidden">
+                        <Image src={d.photo_url} alt={`Bukti pengiriman ${d.school_name}`} fill
+                          sizes="(max-width: 640px) 100vw, 640px" className="object-cover" />
+                      </div>
                     </button>
                   )}
                 </motion.div>
@@ -309,14 +319,14 @@ export default function SPPGProfilePage() {
       </SectionCard>
 
       {/* Menu hari ini */}
-      <SectionCard title="Menu Hari Ini">
+      <SectionCard title="Menu Hari Ini" delay={0.1}>
         {todayMenu ? (
           <div className="flex items-start gap-3">
             {todayMenu.photo_url ? (
               <button type="button" onClick={() => setLightbox(todayMenu.photo_url!)} className="shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={todayMenu.photo_url} alt="Menu hari ini"
-                  className="w-16 h-16 object-cover rounded-xl" />
+                <div className="photo-zoom relative w-20 h-20 rounded-xl overflow-hidden">
+                  <Image src={todayMenu.photo_url} alt="Menu hari ini" fill sizes="80px" className="object-cover" />
+                </div>
               </button>
             ) : (
               <div className="w-16 h-16 rounded-xl shrink-0 flex items-center justify-center"
@@ -335,22 +345,14 @@ export default function SPPGProfilePage() {
       </SectionCard>
 
       {/* Rekap AI — tab mingguan / bulanan */}
-      <SectionCard title="Rekap AI">
-        <div className="flex gap-2 mb-3">
+      <SectionCard title="Rekap AI" delay={0.15}>
+        <div className="flex gap-5 mb-4" style={{ borderBottom: '1px solid var(--border)' }}>
           <button type="button" onClick={() => setAiTab('weekly')}
-            className="pill px-3 py-1.5 text-xs" data-active={aiTab === 'weekly'}
-            style={{
-              backgroundColor: aiTab === 'weekly' ? 'var(--navy)' : 'var(--bg-surface)',
-              color: aiTab === 'weekly' ? '#fff' : 'var(--text-secondary)',
-            }}>
+            className={`tab-underline pb-2.5 text-sm ${aiTab === 'weekly' ? 'active' : ''}`}>
             Mingguan
           </button>
           <button type="button" onClick={openMonthly}
-            className="pill px-3 py-1.5 text-xs"
-            style={{
-              backgroundColor: aiTab === 'monthly' ? 'var(--navy)' : 'var(--bg-surface)',
-              color: aiTab === 'monthly' ? '#fff' : 'var(--text-secondary)',
-            }}>
+            className={`tab-underline pb-2.5 text-sm ${aiTab === 'monthly' ? 'active' : ''}`}>
             Bulanan
           </button>
         </div>
@@ -387,7 +389,7 @@ export default function SPPGProfilePage() {
       </SectionCard>
 
       {/* Ulasan penerima */}
-      <SectionCard title="Ulasan Penerima">
+      <SectionCard title="Ulasan Penerima" delay={0.2}>
         {reviewsState === 'loading' ? (
           <div className="flex flex-col gap-2">
             <Skeleton className="h-12" />
@@ -415,6 +417,8 @@ export default function SPPGProfilePage() {
           <Empty />
         )}
       </SectionCard>
+
+      </div>
 
       {lightbox && <Lightbox url={lightbox} onClose={() => setLightbox(null)} />}
     </motion.div>
