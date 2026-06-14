@@ -1,5 +1,3 @@
-# ── Environment / secrets (JANGAN commit) ───────────────────────
-# Tutup semua varian .env di mana pun, KECUALI .env.example (template aman).
 .env
 .env.*
 **/.env
@@ -7,15 +5,12 @@
 !.env.example
 !**/.env.example
 
-# Local tooling / editor settings (personal) → jangan di-push.
 .claude/
 
-# File kredensial provider (berisi API key Qwen asli) → JANGAN di-push.
 mbg-backend/API-QWEN.csv
 *.key
 *.pem
 
-# ── Python ──────────────────────────────────────────────────────
 venv/
 **/venv/
 __pycache__/
@@ -23,16 +18,13 @@ __pycache__/
 *.pyc
 **/*.pyc
 
-# ── Node / Next.js ──────────────────────────────────────────────
 node_modules/
 **/node_modules/
 .next/
 **/.next/
 
-# ── Misc ────────────────────────────────────────────────────────
 .DS_Store
 *.log
 
-# Snapshot/duplikat lama (bukan kode aktif)
 test/
 *.zip
