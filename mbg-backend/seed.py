@@ -5,22 +5,29 @@ Jalankan SETELAH:
   1. schema.sql (v2) sudah di-run di Supabase SQL Editor
   2. .env sudah diisi (SUPABASE_URL + SUPABASE_SERVICE_KEY)
 
-    python seed.py
+Password operator WAJIB via env (tidak di-hardcode):
+
+    SEED_OPERATOR_PASSWORD='...' python seed.py
 
 Membuat 3 SPPG (1 bagus, 1 sedang, 1 bermasalah) x 3 sekolah, plus:
   - delivery + feedback 7 hari (buat leaderboard)
   - kitchen_process 7 hari (tahap persiapan & masak)
   - QR statis: 2 per sekolah (delivery + feedback)
 """
+import os
 import secrets
+import sys
 from datetime import date, datetime, timedelta, timezone
 
 import bcrypt
 
 from app.core.database import supabase
 
-# Prototype: password operator simpel & seragam (tetap di-hash bcrypt di DB).
-OPERATOR_PASSWORD = "sppg123"
+# Password operator dari env (tidak di-hardcode; tetap di-hash bcrypt di DB).
+# Jalankan: SEED_OPERATOR_PASSWORD='xxx' python seed.py
+OPERATOR_PASSWORD = os.environ.get("SEED_OPERATOR_PASSWORD")
+if not OPERATOR_PASSWORD:
+    sys.exit("Set dulu env SEED_OPERATOR_PASSWORD (jangan hardcode password di source).")
 
 
 def hash_password(plain: str) -> str:
@@ -107,7 +114,7 @@ def main() -> None:
             "username": username,
             "password": hash_password(OPERATOR_PASSWORD),
         }])
-        print(f"     login: {username} / {OPERATOR_PASSWORD}")
+        print(f"     login: {username} (password = SEED_OPERATOR_PASSWORD)")
 
         # sekolah
         schools = insert("school", [{"sppg_id": sppg_id, "name": n} for n in SCHOOL_NAMES[name]])
@@ -176,7 +183,7 @@ def main() -> None:
         print(f"     {len(schools)} sekolah · {len(qr_rows)} QR · {len(deliveries)} delivery · {len(feedbacks)} feedback")
 
     print("Selesai OK  Data siap dipakai.")
-    print(f"   Semua operator login pakai password: {OPERATOR_PASSWORD} (di DB tersimpan sbg hash).")
+    print("   Semua operator login pakai password = SEED_OPERATOR_PASSWORD (di DB tersimpan sbg hash).")
 
 
 if __name__ == "__main__":

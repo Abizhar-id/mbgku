@@ -3,6 +3,7 @@ Konfigurasi terpusat. Semua env var dibaca di sini, tidak di tempat lain.
 """
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -20,9 +21,21 @@ class Settings(BaseSettings):
     DASHSCOPE_BASE_URL: str = "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
     QWEN_MODEL: str = "qwen-plus"
 
-    # Auth (prototype-simple)
-    JWT_SECRET: str = "dev-secret-ganti-di-production"
+    # Auth — JWT_SECRET WAJIB di-set (tanpa default). Kalau kosong/lemah, app
+    # gagal start (fail-fast) daripada diam-diam memakai secret publik yang
+    # memungkinkan token admin dipalsukan.
+    JWT_SECRET: str
     JWT_EXPIRE_HOURS: int = 12
+
+    @field_validator("JWT_SECRET")
+    @classmethod
+    def _strong_secret(cls, v: str) -> str:
+        if len(v) < 32 or v == "dev-secret-ganti-di-production":
+            raise ValueError(
+                "JWT_SECRET wajib di-set & acak (min 32 char). "
+                "Generate: openssl rand -hex 32"
+            )
+        return v
 
     # CORS
     FRONTEND_ORIGIN: str = "http://localhost:3000"

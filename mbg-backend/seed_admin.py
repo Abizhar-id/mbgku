@@ -1,24 +1,31 @@
 """
 Seed akun admin platform awal.
 
-Jalankan SETELAH schema.sql (v2, sudah ada tabel `admin`) di-run di Supabase:
+Jalankan SETELAH schema.sql (v2, sudah ada tabel `admin`) di-run di Supabase.
+Password WAJIB via env (tidak di-hardcode):
 
-    python seed_admin.py
+    SEED_ADMIN_PASSWORD='...' python seed_admin.py
 
-Membuat 1 akun admin default:
+Membuat 1 akun admin:
     username = admin
-    password = admin123
+    password = $SEED_ADMIN_PASSWORD
 
-⚠️  Ganti password setelah pertama login (prototype default — jangan dipakai di produksi).
 Aman dijalankan berulang: jika username 'admin' sudah ada, password-nya di-reset
 ke hash baru (idempotent).
 """
+import os
+import sys
+
 import bcrypt
 
 from app.core.database import supabase
 
 DEFAULT_USERNAME = "admin"
-DEFAULT_PASSWORD = "admin123"  # Ganti password setelah pertama login.
+# Password dari env (tidak di-hardcode). Jalankan:
+#   SEED_ADMIN_PASSWORD='xxx' python seed_admin.py
+DEFAULT_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD")
+if not DEFAULT_PASSWORD:
+    sys.exit("Set dulu env SEED_ADMIN_PASSWORD (jangan hardcode password di source).")
 
 
 def main() -> None:
@@ -43,7 +50,7 @@ def main() -> None:
         ).execute()
         print(f"Admin '{DEFAULT_USERNAME}' dibuat.")
 
-    print(f"   login: {DEFAULT_USERNAME} / {DEFAULT_PASSWORD}")
+    print(f"   login: {DEFAULT_USERNAME} (password = SEED_ADMIN_PASSWORD)")
     print("   ⚠️  Ganti password setelah pertama login.")
 
 

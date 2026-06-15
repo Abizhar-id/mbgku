@@ -2,25 +2,39 @@
 Setup akun PROTOTYPE — login simpel & seragam (bukan untuk produksi).
 
 Hasil akhir:
-  - admin / admin123
-  - sppg1 .. sppgN / sppg123   (1 operator per SPPG, urut id SPPG)
+  - admin                       (password = $SEED_ADMIN_PASSWORD)
+  - sppg1 .. sppgN              (password = $SEED_OPERATOR_PASSWORD, 1 operator per SPPG)
   - operator duplikat/test dihapus (1 SPPG = 1 operator)
 
 Aman dijalankan berulang (idempotent). Password tetap di-hash bcrypt dan disimpan
 di kolom `password` (operator) — tidak perlu migrasi/ALTER kolom apa pun.
 
-Pakai:
+Pakai (password WAJIB via env, tidak di-hardcode):
     cd mbg-backend
-    ../venv/bin/python3.12 setup_prototype_accounts.py
-    # (atau: source ../venv/bin/activate && python setup_prototype_accounts.py)
+    SEED_OPERATOR_PASSWORD='...' SEED_ADMIN_PASSWORD='...' \
+        ../venv/bin/python3.12 setup_prototype_accounts.py
 """
+import os
+import sys
+
 import bcrypt
 
 from app.core.database import supabase
 
-OPERATOR_PASSWORD = "sppg123"   # WAJIB ganti sebelum production
+# Password TIDAK di-hardcode (mencegah default publik & reset tak sengaja).
+# Wajib via env saat menjalankan:
+#   SEED_OPERATOR_PASSWORD='xxx' SEED_ADMIN_PASSWORD='yyy' python setup_prototype_accounts.py
+OPERATOR_PASSWORD = os.environ.get("SEED_OPERATOR_PASSWORD")
 ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "admin123"     # WAJIB ganti sebelum production
+ADMIN_PASSWORD = os.environ.get("SEED_ADMIN_PASSWORD")
+
+if not OPERATOR_PASSWORD or not ADMIN_PASSWORD:
+    sys.exit(
+        "Set dulu env SEED_OPERATOR_PASSWORD & SEED_ADMIN_PASSWORD "
+        "(jangan hardcode password di source). Contoh:\n"
+        "  SEED_OPERATOR_PASSWORD='...' SEED_ADMIN_PASSWORD='...' "
+        "python setup_prototype_accounts.py"
+    )
 
 
 def _hash(plain: str) -> str:
@@ -61,7 +75,7 @@ def main() -> None:
             {"username": f"sppg{rank}", "password": pw_hash}
         ).eq("id", op_id).execute()
 
-    # ── Admin: pastikan ada & password = admin123 ──
+    # ── Admin: pastikan ada & set password dari $SEED_ADMIN_PASSWORD ──
     admins = supabase.table("admin").select("id").eq("username", ADMIN_USERNAME).execute().data
     if admins:
         supabase.table("admin").update({"password_hash": _hash(ADMIN_PASSWORD)}).eq(
@@ -72,12 +86,13 @@ def main() -> None:
             {"username": ADMIN_USERNAME, "password_hash": _hash(ADMIN_PASSWORD)}
         ).execute()
 
-    # ── Ringkasan ──
+    # ── Ringkasan (password TIDAK dicetak — hindari bocor ke log) ──
     print(f"Selesai. {len(keepers)} operator ditata, {deleted} duplikat dihapus.\n")
     print("=== AKUN LOGIN (prototype) ===")
-    print(f"  admin  / {ADMIN_PASSWORD}   (panel admin)")
+    print("  admin   (panel admin)")
     for rank, (_, sppg_id) in enumerate(keepers, start=1):
-        print(f"  sppg{rank:<2} / {OPERATOR_PASSWORD}   (dashboard SPPG id={sppg_id})")
+        print(f"  sppg{rank:<2}  (dashboard SPPG id={sppg_id})")
+    print("\nPassword = nilai SEED_*_PASSWORD yang kamu set saat menjalankan script ini.")
 
 
 if __name__ == "__main__":

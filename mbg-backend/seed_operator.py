@@ -12,11 +12,18 @@ di-update; kalau belum ada → di-insert.
 Password operator di-hash bcrypt sebelum disimpan (sama seperti seed.py).
 Prototype: password simpel & seragam.
 """
+import os
+import sys
+
 import bcrypt
 
 from app.core.database import supabase
 
-OPERATOR_PASSWORD = "sppg123"  # prototype
+# Password dari env (tidak di-hardcode). Jalankan:
+#   SEED_OPERATOR_PASSWORD='xxx' python seed_operator.py
+OPERATOR_PASSWORD = os.environ.get("SEED_OPERATOR_PASSWORD")
+if not OPERATOR_PASSWORD:
+    sys.exit("Set dulu env SEED_OPERATOR_PASSWORD (jangan hardcode password di source).")
 
 
 def hash_password(plain: str) -> str:
@@ -63,7 +70,7 @@ def main() -> None:
             ).execute()
             print(f"Operator '{username}' dibuat untuk '{sppg_name}' (sppg_id={sppg_id}).")
 
-        print(f"   login: {username} / {password}")
+        print(f"   login: {username} (password = SEED_OPERATOR_PASSWORD)")
 
 
 if __name__ == "__main__":

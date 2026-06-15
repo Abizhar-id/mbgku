@@ -15,14 +15,18 @@ QR baru otomatis dikenali endpoint /delivery/confirm & /feedback.
 import io
 import uuid
 
-import bcrypt
 import qrcode
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel
 from supabase import Client
 
-from app.core.auth import CurrentAdmin, create_admin_token, get_current_admin
+from app.core.auth import (
+    CurrentAdmin,
+    verify_password,
+    create_admin_token,
+    get_current_admin,
+)
 from app.core.config import settings
 from app.core.database import get_supabase
 from app.core.ratelimit import limiter
@@ -153,7 +157,7 @@ def admin_login(request: Request, body: AdminLoginRequest, db: Client = Depends(
         raise HTTPException(status_code=401, detail="Username atau password salah.")
 
     admin = rows[0]
-    if not bcrypt.checkpw(body.password.encode(), admin["password_hash"].encode()):
+    if not verify_password(body.password, admin["password_hash"]):
         raise HTTPException(status_code=401, detail="Username atau password salah.")
 
     return AdminLoginResponse(

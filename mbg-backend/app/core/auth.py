@@ -58,7 +58,7 @@ def _create_token(operator_id: int, sppg_id: int) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm="HS256")
 
 
-def _verify_password(plain: str, hashed: str) -> bool:
+def verify_password(plain: str, hashed: str) -> bool:
     """Verifikasi bcrypt dengan aman: nilai non-hash (mis. plaintext lama) → False,
     bukan 500. Kolom DB tetap bernama `password` (isinya hash bcrypt)."""
     try:
@@ -139,7 +139,7 @@ def login(request: Request, body: LoginRequest, db: Client = Depends(get_supabas
     )
     if ops:
         op = ops[0]
-        if not _verify_password(body.password, op["password"]):
+        if not verify_password(body.password, op["password"]):
             raise HTTPException(status_code=401, detail="Username atau password salah.")
 
         sppg = db.table("sppg").select("name").eq("id", op["sppg_id"]).execute().data
@@ -163,7 +163,7 @@ def login(request: Request, body: LoginRequest, db: Client = Depends(get_supabas
     )
     if admins:
         admin = admins[0]
-        if not _verify_password(body.password, admin["password_hash"]):
+        if not verify_password(body.password, admin["password_hash"]):
             raise HTTPException(status_code=401, detail="Username atau password salah.")
 
         return LoginResponse(
